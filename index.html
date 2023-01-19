@@ -118,14 +118,15 @@
         const datasets = [];
         const character = Character[charId];
         const coefficients = CharacterPotentialCoefficient[character.RarityFlags];
-        const levels = Object.keys(CharacterPotential).map(x => +x);
+        let levels = Object.keys(CharacterPotential).map(x => +x);
         levels.sort((x, y) => x - y);
         levelBounds[0] = Math.max(1, levelBounds[0]);
         levelBounds[1] = Math.min(levelBounds[1], {1: 100, 2: 160, 8: 500}[character.RarityFlags]);
+        levels = levels.filter(l => l >= levelBounds[0] && l <= levelBounds[1]);
+        console.log(levelBounds);
         for (let rarity of rarities) {
           const d = [];
           for (let level of levels) {
-            if (level < levelBounds[0] || level > levelBounds[1]) continue;
             const totalPotential =
                 coefficients[rarity].m * CharacterPotential[level] + coefficients[rarity].b;
             const unitPotential = totalPotential / character.BaseParameterGrossCoefficient;
