@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Memento Mori: Character Base Stats</title>
+    <style>
+    html, body, select, input {
+      font-size: 24px;
+    }
+    </style>
+  </head>
+  <body>
+    <div style="max-width: 1600px; margin-left: auto; margin-right: auto;">
+      <h1>Memento Mori: Character Base Stats</h1>
+      <p>Character: <select id="chars"></select></p>
+      <p>Stats: <label><input type="checkbox" id="Muscle" checked> STR</label> <label><input type="checkbox" id="Energy"> DEX</label> <label><input type="checkbox" id="Intelligence"> MAG</label> <label><input type="checkbox" id="Health"> STA</label></p>
+      <p>Rarity: <label id="label-1"><input type="checkbox" id="rarity-1" checked> N</label> <label id="label-2"><input type="checkbox" id="rarity-2" checked> R</label> <label id="label-4"><input type="checkbox" id="rarity-4"> R+</label> <label id="label-8"><input type="checkbox" id="rarity-8" checked> SR</label> <label id="label-16"><input type="checkbox" id="rarity-16"> SR+</label> <label id="label-32"><input type="checkbox" id="rarity-32"> SSR</label> <label id="label-64"><input type="checkbox" id="rarity-64"> SSR+</label> <label id="label-128"><input type="checkbox" id="rarity-128"> UR</label> <label id="label-256"><input type="checkbox" id="rarity-256"> UR+</label> <label id="label-512"><input type="checkbox" id="rarity-512"> LR</label> <label id="label-1024"><input type="checkbox" id="rarity-1024"> LR+1</label> <label id="label-2048"><input type="checkbox" id="rarity-2048"> LR+2</label> <label id="label-4096"><input type="checkbox" id="rarity-4096"> LR+3</label> <label id="label-8192"><input type="checkbox" id="rarity-8192"> LR+4</label> <label id="label-16384"><input type="checkbox" id="rarity-16384"> LR+5</label> <label id="label-32768"><input type="checkbox" id="rarity-32768"> LR+6</label> <label id="label-65536"><input type="checkbox" id="rarity-65536"> LR+7</label></p>
+      <p>Levels: <input type="number" value="1" id="min_level" min="1"> to <input type="number" value="100" id="max_level" min="1"></p>
+
+      <div style="width: 100%;"><canvas id="graph"></canvas></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.0/dist/chart.umd.min.js"></script>
+    <script>
+      let chart = null;
+      const Names = {
+          1: 'Monica',
+          2: 'Illya',
+          3: 'Iris',
+          4: 'Loki',
+          5: 'Soltina',
+          6: 'Amleth',
+          7: 'Fenrir',
+          8: 'Florence',
+          9: 'Sonya',
+          10: 'Moddey',
+          11: 'Charlotte',
+          12: 'Arianrhod',
+          13: 'Theodora',
+          14: 'Petra',
+          15: 'Sabrina',
+          16: 'Freesia',
+          17: 'Amour',
+          18: 'Rean',
+          19: 'Belle',
+          20: 'Dian',
+          21: 'Shizu',
+          22: 'Zara',
+          23: 'Rosalie',
+          24: 'Libra',
+          25: 'Ivy',
+          26: 'Merlyn',
+          27: 'Cordie',
+          28: 'Nina',
+          29: 'Mertillier',
+          30: 'Luke',
+          31: 'Garmr',
+          32: 'Skuld',
+          33: 'Cherna',
+          34: 'Soteira',
+          35: 'Mimi',
+          36: 'Tropon',
+          37: 'Hathor',
+          38: 'Olivia',
+          39: 'Primavera',
+          40: 'Carol',
+          41: 'Natasha',
+          42: 'Fortina',
+          43: 'Cerberus',
+          44: 'Rusalka',
+          45: 'Elfriede',
+          46: 'Lunalynn',
+          47: 'Valeriede',
+          48: 'A.A.',
+          49: 'Ophelia',
+          50: 'Armstrong',
+      };
+      const Character = {};
+      const CharacterPotential = {};
+      const CharacterPotentialCoefficient = {};
+      const Rarity = {
+          1: 'N',
+          2: 'R',
+          4: 'R+',
+          8: 'SR',
+          16: 'SR+',
+          32: 'SSR',
+          64: 'SSR+',
+          128: 'UR',
+          256: 'UR+',
+          512: 'LR',
+          1024: 'LR+1',
+          2048: 'LR+2',
+          4096: 'LR+3',
+          8192: 'LR+4',
+          16384: 'LR+5',
+          32768: 'LR+6',
+          65536: 'LR+7',
+      };
+      const Stat = {
+          Muscle: 'STR',
+          Energy: 'DEX',
+          Intelligence: 'MAG',
+          Health: 'STA',
+      };
+
+      let getRandomColor = () => {
+        const letters = '0123456789ABCDEF';
+        let color = '#';
+        for (let i = 0; i < 6; i++) {
+          color += letters[Math.floor(Math.random() * 16)];
+        }
+        return color;
+      };
+
+      Chart.defaults.font.size = 24;
+
+      let redraw = ((charId, rarities, levelBounds, which) => {
+        const datasets = [];
+        const character = Character[charId];
+        const coefficients = CharacterPotentialCoefficient[character.RarityFlags];
+        const levels = Object.keys(CharacterPotential).map(x => +x);
+        levels.sort((x, y) => x - y);
+        levelBounds[0] = Math.max(1, levelBounds[0]);
+        levelBounds[1] = Math.min(levelBounds[1], {1: 100, 2: 160, 8: 500}[character.RarityFlags]);
+        for (let rarity of rarities) {
+          const d = [];
+          for (let level of levels) {
+            if (level < levelBounds[0] || level > levelBounds[1]) continue;
+            const totalPotential =
+                coefficients[rarity].m * CharacterPotential[level] + coefficients[rarity].b;
+            const unitPotential = totalPotential / character.BaseParameterGrossCoefficient;
+            d.push({
+                Muscle: Math.floor(character.BaseParameterCoefficient.Muscle * unitPotential),
+                Energy: Math.floor(character.BaseParameterCoefficient.Energy * unitPotential),
+                Health: Math.floor(character.BaseParameterCoefficient.Health * unitPotential),
+                Intelligence: Math.floor(character.BaseParameterCoefficient.Intelligence * unitPotential),
+            });
+          }
+          for (let stat of which) {
+            datasets.push({
+                label: `${Stat[stat]} (${Rarity[rarity]})`,
+                data: d.map(r => r[stat]),
+                fill: false,
+                borderColor: getRandomColor(),
+                tension: 0.1,
+            });
+          }
+        }
+
+        if (chart != null) chart.destroy();
+
+        chart = new Chart(document.getElementById('graph'), {
+            type: 'line',
+            data: {
+              labels: levels,
+              datasets: datasets,
+            },
+            options: {
+              scales: {
+                x: {
+                  type: 'linear',
+                  title: { display: true, text: 'Level' },
+                  min: levelBounds[0],
+                  max: levelBounds[1],
+                  ticks: {
+                    stepSize: 25,
+                  },
+                },
+                y: {
+                  title: { display: true, text: 'Base Stat' },
+                },
+              }
+            },
+        });
+      });
+
+      let validRarity = (initialRarity, rarity) => {
+          return initialRarity == 1 ? rarity == 1 :
+                 initialRarity == 2 ? 2 <= rarity && rarity <= 64 :
+                 8 <= rarity;
+      };
+
+      let update = () => {
+        const charId = document.getElementById('chars').value;
+        const character = Character[charId];
+        const rarities = [];
+        for (let i = 1; i <= 65536; i *= 2) {
+          if (validRarity(character.RarityFlags, i) &&
+              document.getElementById(`rarity-${i}`).checked) {
+            rarities.push(i);
+          }
+        }
+        const bounds = [
+            +document.getElementById('min_level').value,
+            +document.getElementById('max_level').value,
+        ];
+        const stats = [];
+        for (let stat of ['Muscle', 'Energy', 'Intelligence', 'Health']) {
+          if (document.getElementById(stat).checked) {
+            stats.push(stat);
+          }
+        }
+        redraw(charId, rarities, bounds, stats);
+      };
+
+      let updateCharacter = () => {
+        const character = Character[document.getElementById('chars').value];
+        for (let i = 1; i <= 65536; i *= 2) {
+          if (validRarity(character.RarityFlags, i)) {
+            document.getElementById(`label-${i}`).style.display = 'inline';
+          } else {
+            document.getElementById(`label-${i}`).style.display = 'none';
+          }
+        }
+        document.getElementById('min_level').max =
+        document.getElementById('max_level').max = {1: 100, 2: 160, 8: 500}[character.RarityFlags];
+        update();
+      };
+
+      let done = () => {
+        if (Object.keys(Character).length == 0 ||
+            Object.keys(CharacterPotential).length == 0 ||
+            Object.keys(CharacterPotentialCoefficient).length == 0)
+          return;
+        document.getElementById('chars').onchange = updateCharacter;
+        for (let i = 1; i <= 65536; i *= 2) {
+          document.getElementById(`rarity-${i}`).onchange = update;
+        }
+        for (let stat of ['Muscle', 'Energy', 'Intelligence', 'Health']) {
+          document.getElementById(stat).onchange = update;
+        }
+        document.getElementById('min_level').onchange = update;
+        document.getElementById('max_level').onchange = update;
+        updateCharacter();
+      };
+
+      fetch('https://raw.githubusercontent.com/ScobraCK/MementoMori-data/main/Master/CharacterMB.json', {method: 'get'})
+          .then(response => response.json())
+          .then(data => {
+        for (let info of data) {
+          Character[info.Id] = info;
+
+          let option = document.createElement('option');
+          option.value = info.Id;
+          let name = info.Id in Names ? Names[info.Id] : info.Memo;
+          option.innerText = `${name} (id: ${info.Id})`;
+          document.getElementById('chars').appendChild(option);
+        }
+        done();
+      });
+
+      fetch('https://raw.githubusercontent.com/ScobraCK/MementoMori-data/main/Master/CharacterPotentialMB.json', {method: 'get'})
+          .then(response => response.json())
+          .then(data => {
+        for (let info of data) {
+          let level = info.CharacterLevel + info.CharacterSubLevel / 10.0;
+          CharacterPotential[level] = info.TotalBaseParameter;
+        }
+        done();
+      });
+
+      fetch('https://raw.githubusercontent.com/ScobraCK/MementoMori-data/main/Master/CharacterPotentialCoefficientMB.json', {method: 'get'})
+          .then(response => response.json())
+          .then(data => {
+        for (let info of data) {
+          if (!(info.InitialRarityFlags in CharacterPotentialCoefficient)) {
+            CharacterPotentialCoefficient[info.InitialRarityFlags] = {};
+          }
+          CharacterPotentialCoefficient[info.InitialRarityFlags][info.RarityFlags] = info.RarityCoefficientInfo;
+        }
+        done();
+      });
+    </script>
+  </body>
+</html>
+
