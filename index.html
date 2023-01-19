@@ -201,6 +201,9 @@
           }
         }
         redraw(charId, rarities, bounds, stats);
+
+        window.history.replaceState({}, '',
+            `${location.pathname}?character=${charId}&rarities=${rarities.join(',')}&min_level=${bounds[0]}&max_level=${bounds[1]}&stats=${stats.join(',')}`);
       };
 
       let updateCharacter = () => {
@@ -222,14 +225,24 @@
             Object.keys(CharacterPotential).length == 0 ||
             Object.keys(CharacterPotentialCoefficient).length == 0)
           return;
+        const params = new Proxy(new URLSearchParams(window.location.search), {
+          get: (searchParams, prop) => searchParams.get(prop),
+        });
+        document.getElementById('chars').value = params.character || 1;
         document.getElementById('chars').onchange = updateCharacter;
+        const rarities = (params.rarities || '1,2,8').split(',').map(x => +x);
         for (let i = 1; i <= 65536; i *= 2) {
+          document.getElementById(`rarity-${i}`).checked = rarities.indexOf(i) != -1;
           document.getElementById(`rarity-${i}`).onchange = update;
         }
+        const stats = (params.stats || 'Muscle').split(',');
         for (let stat of ['Muscle', 'Energy', 'Intelligence', 'Health']) {
+          document.getElementById(stat).checked = stats.indexOf(stat) != -1;
           document.getElementById(stat).onchange = update;
         }
+        document.getElementById('min_level').value = params.min_level || 1;
         document.getElementById('min_level').onchange = update;
+        document.getElementById('max_level').value = params.max_level || 100;
         document.getElementById('max_level').onchange = update;
         updateCharacter();
       };
@@ -273,4 +286,3 @@
     </script>
   </body>
 </html>
-
